@@ -6,3 +6,5 @@ setuptools
 wheel
 twine
 tensorflow
+scikit-learn
+keras
