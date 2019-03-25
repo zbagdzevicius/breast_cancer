@@ -2,9 +2,11 @@ import numpy as np
 from pandas import read_csv
 from sklearn.metrics.classification import accuracy_score
 from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPClassifier
 from dbn import SupervisedDBNClassification
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
+import keras
 from keras.models import Sequential
 from keras.layers import Dense
 
@@ -35,14 +37,21 @@ class NeuralNetwork:
             x_data, y_data, test_size=test_size, random_state=0)
         # normalize data values
         sc = StandardScaler()
+        sc.fit(x_data_training)
         x_data_training = sc.fit_transform(x_data_training)
         x_data_testing = sc.transform(x_data_testing)
         # self.simulate_training(100, 0.1, x_data, y_data)
         # test deep_belief_network
-        self.deep_belief_network_prediction(
-            x_data_training, x_data_testing, y_data_training, y_data_testing, learning_rate, training_iterations)
+        # self.deep_belief_network_prediction(
+        #     x_data_training, x_data_testing, y_data_training, y_data_testing, learning_rate, training_iterations)
         # self.keras_neural_network_prediction(
-        #     x_data_training, x_data_testing, y_data_training, y_data_testing)
+        #     x_data_training, x_data_testing, y_data_training, y_data_testing, training_iterations)
+        # self.perceptron_network_prediction(x_data_training, x_data_testing, y_data_training, y_data_testing, training_iterations)
+        # classifier = tf.estimator.DNNClassifier(
+        #     feature_columns=[tf.feature_column.numeric_column(key) for key in self.features],
+        #     hidden_units=hidden_units_spec,
+        #     n_classes=n_classes_spec,
+        #     model_dir=tmp_dir_spec)
 
     @staticmethod
     def shuffle_data(data):
@@ -57,7 +66,7 @@ class NeuralNetwork:
         return x * (1 - x)
 
     def deep_belief_network_prediction(self, x_data_training, x_data_testing,  y_data_training, y_data_testing, learning_rate, training_iterations):
-        classifier = SupervisedDBNClassification(hidden_layers_structure=[len(self.features), 256, len(self.features)],
+        classifier = SupervisedDBNClassification(hidden_layers_structure=[256, 256],
                                                  learning_rate_rbm=learning_rate/2,
                                                  learning_rate=learning_rate,
                                                  n_epochs_rbm=int(training_iterations/10),
@@ -72,26 +81,34 @@ class NeuralNetwork:
             classifier.save("dbn_model.pk1")
         print(classifier_accuracy)
 
-    def keras_neural_network_prediction(self, x_data_training, x_data_testing,  y_data_training, y_data_testing):
+    def keras_neural_network_prediction(self, x_data_training, x_data_testing,  y_data_training, y_data_testing, training_iterations):
         # input layer + first hidden layer
         classifier = Sequential()
-        classifier.add(Dense(output_dim=9, init='uniform',
+        classifier.add(Dense(output_dim=len(self.features), init='uniform',
                              activation='relu', input_dim=len(self.features)))
         # second hidden layer
-        classifier.add(Dense(output_dim=18, init='uniform', activation='relu'))
+        classifier.add(Dense(output_dim=len(self.features), init='uniform', activation='relu'))
         # output layer
         classifier.add(
             Dense(output_dim=1, init='uniform', activation='sigmoid'))
         classifier.compile(
             optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
         classifier.fit(x_data_training, y_data_training,
-                       batch_size=10, nb_epoch=100)
+                       batch_size=256, nb_epoch=training_iterations)
         y_data_prediction = classifier.predict(x_data_testing)
         y_data_prediction = (y_data_prediction > 0.5)
         classifier_accuracy = accuracy_score(y_data_testing, y_data_prediction)
         if classifier_accuracy >= 0.85:
             classifier.save("keras_nn.pk1")
         print(classifier_accuracy)
+    
+    def perceptron_network_prediction(self, x_data_training, x_data_testing,  y_data_training, y_data_testing, training_iterations):
+        for x in range(30):
+            mlp = MLPClassifier(hidden_layer_sizes=(10, 10, 10), max_iter=training_iterations*10)  
+            mlp.fit(x_data_training, y_data_training)
+            predictions = mlp.predict(x_data_testing) 
+            classifier_accuracy = accuracy_score(y_data_testing, predictions)
+            print(classifier_accuracy)
 
     def simulate_training(self, training_iterations, learning_rate, x, y):
         number_of_input_layer_neurons = len(self.features)
