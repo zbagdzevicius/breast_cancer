@@ -42,10 +42,9 @@ class NeuralNetwork:
         x_data_testing = sc.transform(x_data_testing)
         # self.simulate_training(100, 0.1, x_data, y_data)
         # test deep_belief_network
-        # self.deep_belief_network_prediction(
-        #     x_data_training, x_data_testing, y_data_training, y_data_testing, learning_rate, training_iterations)
-        # self.keras_neural_network_prediction(
-        #     x_data_training, x_data_testing, y_data_training, y_data_testing, training_iterations)
+        self.deep_belief_network_prediction(
+            x_data_training, x_data_testing, y_data_training, y_data_testing, learning_rate, training_iterations)
+        # self.convolutional_neural_network_prediction(x_data_training, x_data_testing, y_data_training, y_data_testing, training_iterations)
         # self.perceptron_network_prediction(x_data_training, x_data_testing, y_data_training, y_data_testing, training_iterations)
         # classifier = tf.estimator.DNNClassifier(
         #     feature_columns=[tf.feature_column.numeric_column(key) for key in self.features],
@@ -81,20 +80,20 @@ class NeuralNetwork:
             classifier.save("dbn_model.pk1")
         print(classifier_accuracy)
 
-    def keras_neural_network_prediction(self, x_data_training, x_data_testing,  y_data_training, y_data_testing, training_iterations):
+    def convolutional_neural_network_prediction(self, x_data_training, x_data_testing,  y_data_training, y_data_testing, training_iterations):
         # input layer + first hidden layer
         classifier = Sequential()
         classifier.add(Dense(output_dim=len(self.features), init='uniform',
-                             activation='relu', input_dim=len(self.features)))
+                            activation='relu', input_dim=len(self.features)))
         # second hidden layer
-        classifier.add(Dense(output_dim=len(self.features), init='uniform', activation='relu'))
+        classifier.add(Dense(output_dim=len(self.features)*4, init='uniform', activation='relu'))
         # output layer
         classifier.add(
             Dense(output_dim=1, init='uniform', activation='sigmoid'))
         classifier.compile(
             optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
         classifier.fit(x_data_training, y_data_training,
-                       batch_size=256, nb_epoch=training_iterations)
+                    batch_size=32, nb_epoch=training_iterations)
         y_data_prediction = classifier.predict(x_data_testing)
         y_data_prediction = (y_data_prediction > 0.5)
         classifier_accuracy = accuracy_score(y_data_testing, y_data_prediction)
@@ -104,11 +103,39 @@ class NeuralNetwork:
     
     def perceptron_network_prediction(self, x_data_training, x_data_testing,  y_data_training, y_data_testing, training_iterations):
         for x in range(30):
-            mlp = MLPClassifier(hidden_layer_sizes=(10, 10, 10), max_iter=training_iterations*10)  
+            mlp = MLPClassifier(hidden_layer_sizes=(10, 10, 10), max_iter=training_iterations)  
             mlp.fit(x_data_training, y_data_training)
             predictions = mlp.predict(x_data_testing) 
             classifier_accuracy = accuracy_score(y_data_testing, predictions)
             print(classifier_accuracy)
+    
+    def deep_neural_network_prediction(self, x_data_training, x_data_testing,  y_data_training, y_data_testing, training_iterations):
+        classifier = tf.estimator.DNNClassifier(
+            feature_columns=self.features, 
+            hidden_units=[9,18,9], 
+            n_classes=2, 
+            model_dir='model')
+        
+        train_input_fn = tf.estimator.inputs.pandas_input_fn(
+                    x=x_data_training, 
+                    y=y_data_training, 
+                    num_epochs=training_iterations, 
+                    shuffle=True)
+
+        classifier.train(input_fn=train_input_fn, steps=100)
+
+        test_input_fn = tf.estimator.inputs.pandas_input_fn(
+                    x=x_data_testing, 
+                    y=y_data_testing, 
+                    num_epochs=training_iterations, 
+                    shuffle=False)
+        
+        predict_input_fn = tf.estimator.inputs.pandas_input_fn(
+                      x=x_data_testing, 
+                      num_epochs=1, 
+                      shuffle=False)
+
+        predictions = list(classifier.predict(input_fn=predict_input_fn))
 
     def simulate_training(self, training_iterations, learning_rate, x, y):
         number_of_input_layer_neurons = len(self.features)
@@ -147,5 +174,5 @@ class NeuralNetwork:
 
 
 nn = NeuralNetwork(csv_file_path="dataR2.csv",
-                   training_iterations=100, learning_rate=0.01,
+                   training_iterations=10, learning_rate=0.01,
                    csv_file_test_data_size_in_percents=20)

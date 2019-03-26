@@ -8,3 +8,4 @@ twine
 tensorflow
 scikit-learn
 keras
+sklearn
