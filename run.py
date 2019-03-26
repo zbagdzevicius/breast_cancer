@@ -15,6 +15,7 @@ class NeuralNetwork:
     def __init__(self, csv_file_path, csv_file_test_data_size_in_percents=75):
         self.test_size = csv_file_test_data_size_in_percents / 100
         self.csv_data = read_csv(csv_file_path, delimiter=",")
+        self.data_size = len(self.csv_data)
         self.features, self.label = self.__get_csv_data_headers(self.csv_data)
         self.x_data_training, self.x_data_testing, self.y_data_training, self.y_data_testing = (
             None,
@@ -56,10 +57,16 @@ class NeuralNetwork:
         sc.fit(x_data_training)
         x_data_training = sc.fit_transform(x_data_training)
         x_data_testing = sc.transform(x_data_testing)
+        # x_data_training= (x_data_training / 16).astype(np.float32)
+        # x_data_testing= (x_data_testing / 16).astype(np.float32)
         return x_data_training, x_data_testing
 
     def deep_belief_network_prediction(
-        self, learning_rate, training_iterations, testing_iterations=10, hidden_layer_sizes_array=[10,10]
+        self,
+        learning_rate,
+        training_iterations,
+        testing_iterations=10,
+        hidden_layer_sizes_array=[10, 10],
     ):
         accuracy_list = []
         for x in range(testing_iterations):
@@ -70,7 +77,7 @@ class NeuralNetwork:
                 learning_rate=learning_rate,
                 n_epochs_rbm=int(training_iterations / 10),
                 n_iter_backprop=training_iterations,
-                batch_size=32,
+                batch_size=256,
                 activation_function="relu",
                 dropout_p=0.2,
             )
@@ -81,7 +88,10 @@ class NeuralNetwork:
         return max(accuracy_list)
 
     def convolutional_neural_network_prediction(
-        self, training_iterations, testing_iterations=10, hidden_layer_sizes_array=[10,10]
+        self,
+        training_iterations,
+        testing_iterations=10,
+        hidden_layer_sizes_array=[10, 10],
     ):
         accuracy_list = []
         for x in range(testing_iterations):
@@ -99,19 +109,23 @@ class NeuralNetwork:
             for hidden_layer_size in hidden_layer_sizes_array:
                 classifier.add(
                     Dense(
-                        units=hidden_layer_size, kernel_initializer="uniform", activation="relu"
+                        units=hidden_layer_size,
+                        kernel_initializer="uniform",
+                        activation="relu",
                     )
                 )
             # output layer
-            classifier.add(Dense(units=1, kernel_initializer="uniform", activation="sigmoid"))
+            classifier.add(
+                Dense(units=1, kernel_initializer="uniform", activation="sigmoid")
+            )
             classifier.compile(
                 optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"]
             )
             classifier.fit(
                 self.x_data_training,
                 self.y_data_training,
-                batch_size=32,
-                nb_epoch=training_iterations,
+                batch_size=256,
+                epochs=training_iterations,
             )
             y_data_prediction = classifier.predict(self.x_data_testing)
             y_data_prediction = y_data_prediction > 0.5
@@ -120,13 +134,19 @@ class NeuralNetwork:
         return max(accuracy_list)
 
     def perceptron_neural_network_prediction(
-        self, training_iterations, testing_iterations=10, hidden_layer_sizes_array=[10,10]
+        self,
+        training_iterations,
+        testing_iterations=10,
+        hidden_layer_sizes_array=[10, 10],
     ):
         accuracy_list = []
         for x in range(testing_iterations):
             self.prepare_training_data_from_csv_data(self.csv_data)
             mlp = MLPClassifier(
-                hidden_layer_sizes=([layer_size for layer_size in hidden_layer_sizes_array]), max_iter=training_iterations
+                hidden_layer_sizes=(
+                    [layer_size for layer_size in hidden_layer_sizes_array]
+                ),
+                max_iter=training_iterations,
             )
             mlp.fit(self.x_data_training, self.y_data_training)
             predictions = mlp.predict(self.x_data_testing)
@@ -135,26 +155,43 @@ class NeuralNetwork:
         return max(accuracy_list)
 
     def write_stats_to_csv(self, fullpath, stats_dict_list):
-        with open(file=fullpath, mode="w+") as stats_file:
-            csv_writer = writer(stats_file, dialect=",")
-            headers = list(stats_dict_list[0].keys())
-            csv_writer.writerow(headers)
-            for stats_dict in stats_dict_list:
-                stats_dict_values = list(stats_dict.values())
-                csv_writer.writerow(stats_dict_values)
+        with open(file=fullpath, mode="a+") as stats_file:
+            csv_writer = writer(stats_file)
+            stats_dict_values = list(stats_dict_list.values())
+            csv_writer.writerow(stats_dict_values)
 
 
-nn = NeuralNetwork(csv_file_path="dataR2.csv", csv_file_test_data_size_in_percents=20)
 
-training_iterations = 1
-dbn_accuracy = nn.deep_belief_network_prediction(
-    learning_rate=0.1, training_iterations=training_iterations
-)
-cnn_accuracy = nn.convolutional_neural_network_prediction(
-    training_iterations=training_iterations
-)
-pnn_accuracy = nn.perceptron_neural_network_prediction(
-    training_iterations=training_iterations
-)
+nn = NeuralNetwork(csv_file_path="dataR2.csv", csv_file_test_data_size_in_percents=25)
 
-print(dbn_accuracy, cnn_accuracy, pnn_accuracy)
+for neuron_alpha in range(5):
+    neurons = int(
+        nn.data_size / (len(nn.features) + len(nn.label)) * 2 * (neuron_alpha + 1)
+    )
+    hidden_layers = [neurons, neurons]
+    training_iterations = 100
+    for x in range(10):
+        x = x + 1
+        dbn_accuracy = nn.deep_belief_network_prediction(
+            learning_rate=0.1,
+            training_iterations=training_iterations * x,
+            hidden_layer_sizes_array=hidden_layers,
+        )
+        cnn_accuracy = nn.convolutional_neural_network_prediction(
+            training_iterations=training_iterations * x,
+            hidden_layer_sizes_array=hidden_layers,
+        )
+        pnn_accuracy = nn.perceptron_neural_network_prediction(
+            training_iterations=training_iterations * x,
+            hidden_layer_sizes_array=hidden_layers,
+        )
+        nn.write_stats_to_csv(
+            "training.csv",
+            {
+                "neurons": neurons,
+                "training_iterations": training_iterations * x,
+                "dbn_accuracy": dbn_accuracy,
+                "cnn_accuracy": cnn_accuracy,
+                "pnn_accuracy": pnn_accuracy,
+            },
+        )
