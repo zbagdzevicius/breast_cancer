@@ -1,5 +1,5 @@
 from sklearn.metrics.classification import accuracy_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, scale, normalize
 from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import train_test_split
 import keras
@@ -9,10 +9,17 @@ from dbn import SupervisedDBNClassification
 import numpy as np
 from pandas import read_csv
 from csv import writer
+import time
 
 
 class NeuralNetwork:
-    def __init__(self, csv_file_path, csv_file_test_data_size_in_percents=75, **kwargs):
+    def __init__(
+        self,
+        csv_file_path,
+        csv_file_test_data_size_in_percents=75,
+        preprocessing="normalization",
+    ):
+        self.preprocessing = preprocessing
         self.test_size = csv_file_test_data_size_in_percents / 100
         self.csv_data = read_csv(csv_file_path, delimiter=",")
         self.data_size = len(self.csv_data)
@@ -40,9 +47,14 @@ class NeuralNetwork:
             x_data, y_data, test_size=self.test_size, random_state=0
         )
         # normalize data values
-        self.x_data_training, self.x_data_testing = self.__normalize_values(
-            x_data_training, x_data_testing
-        )
+        if self.preprocessing == "standardization":
+            self.x_data_training, self.x_data_testing = self.__standardize_values(
+                x_data_training, x_data_testing
+            )
+        else:
+            self.x_data_training, self.x_data_testing = self.__normalize_values(
+                x_data_training, x_data_testing
+            )
 
     @staticmethod
     def __get_csv_data_headers(csv_data):
@@ -52,13 +64,17 @@ class NeuralNetwork:
         return features, label
 
     @staticmethod
-    def __normalize_values(x_data_training, x_data_testing):
+    def __standardize_values(x_data_training, x_data_testing):
         sc = StandardScaler()
         sc.fit(x_data_training)
         x_data_training = sc.fit_transform(x_data_training)
         x_data_testing = sc.transform(x_data_testing)
-        # x_data_training= (x_data_training / 16).astype(np.float32)
-        # x_data_testing= (x_data_testing / 16).astype(np.float32)
+        return x_data_training, x_data_testing
+
+    @staticmethod
+    def __normalize_values(x_data_training, x_data_testing):
+        x_data_training = normalize(x_data_training)
+        x_data_testing = normalize(x_data_testing)
         return x_data_training, x_data_testing
 
     def deep_belief_network_prediction(
@@ -161,37 +177,66 @@ class NeuralNetwork:
             csv_writer.writerow(stats_dict_values)
 
 
-
-nn = NeuralNetwork(csv_file_path="dataR2.csv", csv_file_test_data_size_in_percents=25)
-
-for neuron_alpha in range(5):
-    neurons = int(
-        nn.data_size / (len(nn.features) + len(nn.label)) * 2 * (neuron_alpha + 1)
+testing_iterations = 5
+for preprocessing_type in ["normalization", "standardization"]:
+    nn = NeuralNetwork(
+        csv_file_path="dataR2.csv",
+        csv_file_test_data_size_in_percents=25,
+        preprocessing=preprocessing_type,
     )
-    hidden_layers = [neurons, neurons]
-    training_iterations = 100
-    for x in range(10):
-        x = x + 1
-        dbn_accuracy = nn.deep_belief_network_prediction(
-            learning_rate=0.1,
-            training_iterations=training_iterations * x,
-            hidden_layer_sizes_array=hidden_layers,
+    for neuron_alpha in range(1,2):
+        neurons = int(
+            nn.data_size / (len(nn.features) + len(nn.label)) * 2 * neuron_alpha
         )
-        cnn_accuracy = nn.convolutional_neural_network_prediction(
-            training_iterations=training_iterations * x,
-            hidden_layer_sizes_array=hidden_layers,
-        )
-        pnn_accuracy = nn.perceptron_neural_network_prediction(
-            training_iterations=training_iterations * x,
-            hidden_layer_sizes_array=hidden_layers,
-        )
-        nn.write_stats_to_csv(
-            "training.csv",
-            {
-                "neurons": neurons,
-                "training_iterations": training_iterations * x,
-                "dbn_accuracy": dbn_accuracy,
-                "cnn_accuracy": cnn_accuracy,
-                "pnn_accuracy": pnn_accuracy,
-            },
-        )
+
+        for hidden_layers_sizes in range(1, 3):
+            hidden_layers = []
+
+            for hidden_layers_size in range(hidden_layers_sizes):
+                hidden_layers.append(neurons)
+
+            for training_iterations in range(400, 900, 100):
+
+                start = time.time()
+                dbn_accuracy = nn.deep_belief_network_prediction(
+                    learning_rate=0.1,
+                    training_iterations=training_iterations,
+                    hidden_layer_sizes_array=hidden_layers,
+                    testing_iterations=testing_iterations,
+                )
+                end = time.time()
+                dbn_training_time = end - start
+
+                start = time.time()
+                cnn_accuracy = nn.convolutional_neural_network_prediction(
+                    training_iterations=training_iterations,
+                    hidden_layer_sizes_array=hidden_layers,
+                    testing_iterations=testing_iterations,
+                )
+                end = time.time()
+                cnn_training_time = end - start
+
+                start = time.time()
+                pnn_accuracy = nn.perceptron_neural_network_prediction(
+                    training_iterations=training_iterations,
+                    hidden_layer_sizes_array=hidden_layers,
+                    testing_iterations=testing_iterations,
+                )
+                end = time.time()
+                pnn_training_time = end - start
+
+                nn.write_stats_to_csv(
+                    "training.csv",
+                    {
+                        "number_of_hidden_layers": hidden_layers_sizes,
+                        "preprocessing": preprocessing_type,
+                        "neurons": neurons,
+                        "training_iterations": training_iterations,
+                        "dbn_accuracy": dbn_accuracy,
+                        "dbn_training_time": dbn_training_time/testing_iterations,
+                        "cnn_accuracy": cnn_accuracy,
+                        "cnn_training_time": cnn_training_time/testing_iterations,
+                        "pnn_accuracy": pnn_accuracy,
+                        "pnn_training_time": pnn_training_time/testing_iterations,
+                    },
+                )
