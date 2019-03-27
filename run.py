@@ -12,7 +12,7 @@ from csv import writer
 
 
 class NeuralNetwork:
-    def __init__(self, csv_file_path, csv_file_test_data_size_in_percents=75):
+    def __init__(self, csv_file_path, csv_file_test_data_size_in_percents=75, **kwargs):
         self.test_size = csv_file_test_data_size_in_percents / 100
         self.csv_data = read_csv(csv_file_path, delimiter=",")
         self.data_size = len(self.csv_data)
