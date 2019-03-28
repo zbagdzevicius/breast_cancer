@@ -9,3 +9,4 @@ tensorflow
 scikit-learn
 keras
 sklearn
+tkinter
