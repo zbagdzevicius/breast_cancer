@@ -170,81 +170,43 @@ nn = NeuralNetwork(
     csv_file_test_data_size_in_percents=25,
     preprocessing="standardization",
 )
-neurons = 30
-hidden_layer_size = [30]
-training_iterations = 700
-# pnn_accuracy = nn.perceptron_neural_network_prediction(
-#     training_iterations=training_iterations,
-#     hidden_layer_sizes_array=hidden_layer_size,
-#     testing_iterations=1,
-# )
-cnn_accuracy = nn.convolutional_neural_network_prediction(
-    training_iterations=training_iterations,
-    hidden_layer_sizes_array=hidden_layer_size,
-    testing_iterations=1,
-)
-# print(pnn_accuracy)
-print(cnn_accuracy)
-# testing_iterations = 5
-# for preprocessing_type in ["normalization", "standardization"]:
-#     nn = NeuralNetwork(
-#         csv_file_path="dataR2.csv",
-#         csv_file_test_data_size_in_percents=25,
-#         preprocessing=preprocessing_type,
-#     )
-#     for neuron_alpha in range(1, 2):
-#         neurons = int(
-#             nn.data_size / (len(nn.features) + len(nn.label)) * 2 * neuron_alpha
-#         )
 
-#         for hidden_layers_sizes in range(1, 3):
-#             hidden_layers = []
+for preprocessing_type in ["normalization", "standardization"]:
+    nn = NeuralNetwork(
+        csv_file_path="dataR2.csv",
+        csv_file_test_data_size_in_percents=25,
+        preprocessing=preprocessing_type,
+    )
+    for neuron_alpha in range(1, 8):
+        neurons = int(
+            nn.data_size / (len(nn.features) + len(nn.label)) * 2 * neuron_alpha
+        )
 
-#             for hidden_layers_size in range(hidden_layers_sizes):
-#                 hidden_layers.append(neurons)
+        for hidden_layers_sizes in range(1, 3):
+            hidden_layers = []
+            for hidden_layers_size in range(hidden_layers_sizes):
+                hidden_layers.append(neurons)
+            
+            start = time.time()
+            pnn_accuracies = nn.perceptron_neural_network_prediction(
+                training_iterations=4000,
+                hidden_layer_sizes_array=hidden_layers,
+                testing_iterations=1,
+            )
+            end = time.time()
+            pnn_training_time = end - start
 
-#             for training_iterations in range(400, 900, 100):
+            for accuracy_index in range(len(pnn_accuracies)):
+                pnn_accuracy = pnn_accuracies[accuracy_index]
 
-#                 start = time.time()
-#                 dbn_accuracy = nn.deep_belief_network_prediction(
-#                     learning_rate=0.1,
-#                     training_iterations=training_iterations,
-#                     hidden_layer_sizes_array=hidden_layers,
-#                     testing_iterations=testing_iterations,
-#                 )
-#                 end = time.time()
-#                 dbn_training_time = end - start
-
-#                 start = time.time()
-#                 cnn_accuracy = nn.convolutional_neural_network_prediction(
-#                     training_iterations=training_iterations,
-#                     hidden_layer_sizes_array=hidden_layers,
-#                     testing_iterations=testing_iterations,
-#                 )
-#                 end = time.time()
-#                 cnn_training_time = end - start
-
-#                 start = time.time()
-#                 pnn_accuracy = nn.perceptron_neural_network_prediction(
-#                     training_iterations=training_iterations,
-#                     hidden_layer_sizes_array=hidden_layers,
-#                     testing_iterations=testing_iterations,
-#                 )
-#                 end = time.time()
-#                 pnn_training_time = end - start
-
-#                 nn.write_stats_to_csv(
-#                     "training.csv",
-#                     {
-#                         "number_of_hidden_layers": hidden_layers_sizes,
-#                         "preprocessing": preprocessing_type,
-#                         "neurons": neurons,
-#                         "training_iterations": training_iterations,
-#                         "dbn_accuracy": dbn_accuracy,
-#                         "dbn_training_time": dbn_training_time / testing_iterations,
-#                         "cnn_accuracy": cnn_accuracy,
-#                         "cnn_training_time": cnn_training_time / testing_iterations,
-#                         "pnn_accuracy": pnn_accuracy,
-#                         "pnn_training_time": pnn_training_time / testing_iterations,
-#                     },
-#                 )
+                nn.write_stats_to_csv(
+                    "perceptron_performance.csv",
+                    {
+                        "number_of_hidden_layers": hidden_layers_sizes,
+                        "preprocessing": preprocessing_type,
+                        "neurons": neurons,
+                        "training_iterations": accuracy_index+1,
+                        "cost": pnn_accuracy,
+                        "pnn_training_time": pnn_training_time,
+                    },
+                )
